@@ -1,0 +1,191 @@
+#include <limits.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static uint64_t* grid = NULL;
+static size_t grid_sz = 0;
+static size_t grid_cap = 0;
+static size_t nx = 0;
+static size_t ny = 0;
+
+uint64_t grid_at(uint64_t x, uint64_t y) {
+  if (x >= nx || y >= ny)
+    return UINT64_MAX;
+  else
+    return *(uint32_t*)&grid[x + y * nx];
+}
+
+uint64_t basin_at(uint64_t x, uint64_t y) {
+  if (x >= nx || y >= ny)
+    return UINT64_MAX;
+  else
+    return grid[x + y * nx] >> 32;
+}
+
+uint32_t* grid_ptr(uint64_t x, uint64_t y) {
+  return (uint32_t*)&grid[x + y * nx];
+}
+
+uint32_t* basin_ptr(uint64_t x, uint64_t y) { return grid_ptr(x, y) + 1; }
+
+void reserve_grid(size_t sz) {
+  if (sz <= grid_cap) return;
+  if (grid_cap == 0) grid_cap = 1;
+  while (grid_cap < sz) grid_cap *= 2;
+  grid = realloc(grid, sizeof(uint64_t) * grid_cap);
+}
+
+void dump_grid() {
+  for (uint64_t y = 0; y < ny; ++y) {
+    for (uint64_t x = 0; x < nx; ++x) {
+      printf("%lu", grid_at(x, y));
+    }
+    puts("");
+  }
+}
+
+void dump_basin() {
+  for (uint64_t y = 0; y < ny; ++y) {
+    for (uint64_t x = 0; x < nx; ++x) {
+      printf("%lu", basin_at(x, y));
+    }
+    puts("");
+  }
+}
+
+#define QSZ (1 << 14)
+uint64_t find_basin(uint64_t x0, uint64_t y0) {
+  if (basin_at(x0, y0) > 0 || grid_at(x0, y0) >= 9) return 0;
+
+  static uint32_t b = 1;
+  uint64_t bsz = 0;
+
+  static uint64_t q[QSZ * 2];
+  size_t qft = 0;
+  size_t qsz = 0;
+  memset(q, 0, sizeof(uint64_t) * QSZ);
+
+  q[0] = x0;
+  q[1] = y0;
+  ++qsz;
+
+  *basin_ptr(x0, y0) = b;
+  ++bsz;
+
+  while (qft != qsz) {
+    uint64_t x = q[qft * 2];
+    uint64_t y = q[qft * 2 + 1];
+    ++qft;
+
+    uint64_t z = grid_at(x, y);
+
+    if (basin_at(x + 1, y) == 0 && grid_at(x + 1, y) < 9 &&
+        grid_at(x + 1, y) > z) {
+      q[qsz * 2] = x + 1;
+      q[qsz * 2 + 1] = y;
+      ++qsz;
+
+      *basin_ptr(x + 1, y) = b;
+      ++bsz;
+    }
+
+    if (basin_at(x - 1, y) == 0 && grid_at(x - 1, y) < 9 &&
+        grid_at(x - 1, y) > z) {
+      q[qsz * 2] = x - 1;
+      q[qsz * 2 + 1] = y;
+      ++qsz;
+
+      *basin_ptr(x - 1, y) = b;
+      ++bsz;
+    }
+
+    if (basin_at(x, y + 1) == 0 && grid_at(x, y + 1) < 9 &&
+        grid_at(x, y + 1) > z) {
+      q[qsz * 2] = x;
+      q[qsz * 2 + 1] = y + 1;
+      ++qsz;
+
+      *basin_ptr(x, y + 1) = b;
+      ++bsz;
+    }
+
+    if (basin_at(x, y - 1) == 0 && grid_at(x, y - 1) < 9 &&
+        grid_at(x, y - 1) > z) {
+      q[qsz * 2] = x;
+      q[qsz * 2 + 1] = y - 1;
+      ++qsz;
+
+      *basin_ptr(x, y - 1) = b;
+      ++bsz;
+    }
+  }
+
+  ++b;
+  return bsz;
+}
+
+int main(void) {
+  uint64_t x = 0, y = 0;
+  char c = 0;
+
+  while ((c = getchar()) != EOF) {
+    if (c != '\n') {
+      reserve_grid(grid_sz + 1);
+      grid[x++ + y * nx] = c - '0';
+      ++grid_sz;
+    } else {
+      ++y;
+      if (nx == 0) nx = x;
+      x = 0;
+    }
+  }
+
+  ny = y;
+  if (c == EOF) ++ny;
+
+  uint64_t risk = 0;
+  uint64_t bsz0 = 0;
+  uint64_t bsz1 = 0;
+  uint64_t bsz2 = 0;
+
+  for (uint64_t y = 0; y < ny; ++y) {
+    for (uint64_t x = 0; x < nx; ++x) {
+      uint64_t z = grid_at(x, y);
+
+      if (z < grid_at(x + 1, y) && z < grid_at(x - 1, y) &&
+          z < grid_at(x, y + 1) && z < grid_at(x, y - 1)) {
+        risk += 1 + z;
+
+        if (basin_at(x, y) > 0) {
+          fprintf(stderr, "Unreachable: %lu %lu\n", x, y);
+          return 1;
+        }
+
+        uint64_t bsz = find_basin(x, y);
+        printf("Size: %lu\n", bsz);
+
+        if (bsz > bsz0) {
+          bsz2 = bsz1;
+          bsz1 = bsz0;
+          bsz0 = bsz;
+        } else if (bsz > bsz1) {
+          bsz2 = bsz1;
+          bsz1 = bsz;
+        } else if (bsz > bsz2) {
+          bsz2 = bsz;
+        }
+      }
+    }
+  }
+
+  printf("%lu\n", risk);
+  puts("");
+  dump_grid();
+  puts("");
+  dump_basin();
+  puts("");
+
+  printf("%lu\n", bsz0 * bsz1 * bsz2);
+}
