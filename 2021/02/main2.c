@@ -4,7 +4,7 @@ int main(void) {
   int depth = 0;
   int horiz = 0;
   int aim = 0;
-
+  
   char dir[256] = {0};
   int val = 0;
 
