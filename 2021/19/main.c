@@ -206,7 +206,7 @@ int main(void) {
     for (size_t j = 0; j < ss_sz; ++j) {
       if (visited[j]) continue;
       Scanner* s2 = &ss[j];
-      bool matched = false;
+      //bool matched = false;
 
       for (size_t k = 0; k < 24; ++k) {
         for (size_t a = 0; a < s1->sz; ++a) {
@@ -224,7 +224,7 @@ int main(void) {
               visited[j] = true;
               spos[j] = p;
               *s2 = s;
-              matched = true;
+              //matched = true;
               goto end;
             }
           }
@@ -232,10 +232,10 @@ int main(void) {
       }
 
     end:
-      if (matched) printf("Match %zu %zu\n", i, j);
+      //if (matched) printf("Match %zu %zu\n", i, j);
     }
   }
 
-  printf("%d\n", count_beacons(ss, ss_sz));
-  printf("%ld\n", max_manhattan(spos, ss_sz));
+  printf("Part 1: %d\n", count_beacons(ss, ss_sz));
+  printf("Part 2: %ld\n", max_manhattan(spos, ss_sz));
 }
