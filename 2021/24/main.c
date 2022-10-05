@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 int64_t regs[4] = {0};
 
@@ -82,8 +83,8 @@ Instruction make_instruction(char* line) {
   return in;
 }
 
-void dump_instruction(Instruction in) {
-  dump_regs();
+void dump_instruction(Instruction in, bool verbose) {
+  if (verbose) dump_regs();
   printf("%s %c", type2str(in.type), (char)in.a + 'w');
   if (in.type != INP) {
     if (in.b == 4) {
@@ -92,12 +93,12 @@ void dump_instruction(Instruction in) {
       printf(" %c", (char)in.b + 'w');
     }
   }
-  putchar('\n');
 }
 
 void dump_program(Instruction* p, size_t sz) {
   for (size_t i = 0; i < sz; ++i) {
-    dump_instruction(p[i]);
+    dump_instruction(p[i], false);
+    putchar('\n');
   }
 }
 
@@ -109,86 +110,117 @@ int64_t run(const char* digits, Instruction* p, size_t sz) {
   for (size_t i = 0; i < sz; ++i) {
     Instruction in = p[i];
     int64_t b = in.b == 4 ? in.c : regs[in.b];
+    int64_t* a = &regs[in.a];
 
     switch (in.type) {
       case INP:
-        regs[in.a] = digits[d++];
+        *a = digits[d++];
         break;
       case ADD:
-        regs[in.a] += b;
+        *a += b;
         break;
       case MUL:
-        regs[in.a] *= b;
+        *a *= b;
         break;
       case DIV:
-        regs[in.a] /= b;
+        *a /= b;
         break;
       case MOD:
-        regs[in.a] = regs[in.a] % b;
+        *a = *a % b;
         break;
       case EQL:
-        regs[in.a] = regs[in.a] == b ? 1 : 0;
+        *a = *a == b ? 1 : 0;
     }
   }
 
   return regs[3];
 }
 
-size_t optimize(Instruction* o, Instruction* p, size_t sz) {
+#define READ (INT64_MAX - 1)
+#define UNKNOWN INT64_MAX
+
+size_t optimize(Instruction* o, Instruction* p, size_t sz, bool verbose) {
   memset(regs, 0, sizeof(int64_t) * 4);
   size_t osz = 0;
+  bool skipped[4096] = {0};
 
   for (size_t i = 0; i < sz; ++i) {
     Instruction in = p[i];
     bool skip = false;
     int64_t b = in.b < 4 ? regs[in.b] : in.c;
+    int64_t* a = &regs[in.a];
 
     if (in.type == INP) {
-      regs[in.a] = -2;
-    } else if (in.type != INP && in.b < 4 && regs[in.b] < 0) {
-      regs[in.a] = regs[in.b];
+      *a = READ;
     } else {
       switch (in.type) {
         case ADD:
-          if (in.b == 4 && in.c == 0)
+          if (b == 0)
             skip = true;
-          else if (regs[in.a] == 0 && in.b < 4 && regs[in.b] == 0)
-            skip = true;
-          else if (regs[in.a] == 0 && in.b == 4 && in.c == 0)
-            skip = true;
-          else if (regs[in.a] < 0 && in.b == 4)
-            regs[in.a] = in.c;
+          else if (*a == 0 && b == READ) 
+            *a = READ;
+          else if (*a >= READ || b >= READ)
+            *a = UNKNOWN;
+          else
+            *a += b;
+
           break;
 
         case MUL:
-          if (regs[in.a] == 0 && in.b == 4 && in.c == 0)
+          if (b == 1)
             skip = true;
-          else if (in.b == 4 && in.c == 0)
-            regs[in.a] = 0;
+          else if (*a == 0)
+            skip = true;
+          else if (*a == 0 || b == 0)
+            *a = 0;
+          else if (*a == 1 && b == READ) 
+            *a = READ;
+          else if (*a >= READ || b >= READ)
+            *a = UNKNOWN;
+          else
+            *a *= b;
+
           break;
 
         case DIV:
-          if (in.b == 4 && in.c == 1) skip = true;
+          if (b == 1)
+            skip = true;
+          else if (*a >= READ || b >= READ)
+            *a = UNKNOWN;
+          else
+            *a /= b;
           break;
 
         case MOD:
-          if (regs[in.a] == 0) skip = true;
+          if (*a == 0)
+            skip = true;
+          else
+            *a = *a % b;
           break;
 
         case EQL:
-          if (regs[in.a] < 0 && in.b == 4)
-            regs[in.a] = regs[in.a] == in.c ? 1 : 0;
-          else if (regs[in.a] == -2 && in.b == 4 && (in.c > 10 || in.c <= 0)) regs[in.a] == 0;
-          else if (regs[in.a] == -2 && in.b < 4 && (regs[in.b] > 10 || in.c <= 0)) regs[in.a] == 0;
+          if (*a == READ && b < READ && (b <= 0 || b >= 10))
+            *a = 0;
+          else if (b == READ && *a < READ && (*a <= 0 || *a >= 10))
+            *a = 0;
+          else if (*a >= READ || b >= READ)
+            *a = UNKNOWN;
+          else
+            *a = *a == b ? 1 : 0;
+          break;
       }
     }
 
-    if (!skip){
-      o[osz++] = in;
-      dump_instruction(in);
-    }
+    if (skip) skipped[i] = true;
 
+    if (verbose) {
+      printf(skip ? "[x] " : "[ ] ");
+      dump_instruction(p[i], verbose);
+      putchar('\n');
+    }
   }
+
+  for (size_t i = 0; i < sz; ++i) if (!skipped[i]) o[osz++] = p[i];
 
   return osz;
 }
@@ -199,13 +231,17 @@ int main(void) {
   // dump_program(program, sz);
 
   Instruction o[4096];
-  size_t osz = optimize(o, program, sz);
-  printf("%zu/%zu\n", osz, sz);
+  size_t osz = optimize(o, program, sz, false);
+  //printf("%zu/%zu\n", osz, sz);
+  osz = optimize(o, o, osz, false);
+  //printf("%zu/%zu\n", osz, sz);
 
-  int64_t n = 99999999999999;
+  //int64_t n = powl(10, 14) - 1;
+  int64_t n = 20000000000000;
+  int64_t lower = powl(10, 13) - 1;
 
-  while (false) {
-    if (n <= 9999999999999) break;
+  while (true) {
+    if (n <= lower) break;
     char str[15] = {0};
     snprintf(str, 14, "%ld", n);
 
@@ -220,9 +256,11 @@ int main(void) {
       puts(str);
       break;
     }
-
+    
+    if (n % 100000 == 0) printf("%ld\n", n);
     --n;
   }
 
-  // dump_program(o, osz);
+  dump_program(o, osz);
+  return osz;
 }
