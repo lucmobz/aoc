@@ -1,32 +1,5 @@
-#include <ctype.h>
-#include <math.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-static inline bool run(int64_t w0, int64_t w1, int64_t w2, int64_t w3,
-                       int64_t w4, int64_t w5, int64_t w6, int64_t w7,
-                       int64_t w8, int64_t w9, int64_t w10, int64_t w11,
-                       int64_t w12, int64_t w13) {
-  int64_t z = ((((w0 + 15) * 26 + w1 + 16) * 26 + w2 + 4) * 26 + w3 + 14);
-  int64_t x = (((z % 26 - 8) == w4) == 0);
-  z = (z / 26 * (25 * x + 1) + (w4 + 1) * x);
-  x = (((z % 26 - 10) == w5) == 0);
-  z = ((z / 26 * (25 * x + 1) + ((w5 + 5) * x)) * 26 + w6 + 1);
-  x = (((z % 26 - 3) == w7) == 0);
-  z = ((z / 26 * (25 * x + 1) + ((w7 + 3) * x)) * 26 + w8 + 3);
-  x = (((z % 26 - 4) == w9) == 0);
-  z = ((z / 26 * (25 * x + 1) + ((w9 + 7) * x)) * 26 + w10 + 5);
-  x = (((z % 26 - 5) == w11) == 0);
-  z = (z / 26 * (25 * x + 1) + ((w11 + 13) * x));
-  x = (((z % 26 - 8) == w12) == 0);
-  z = (z / 26 * (25 * x + 1) + ((w12 + 3) * x));
-  x = (((z % 26 - 11) == w13) == 0);
-  z = (z / 26 * (25 * x + 1) + ((w13 + 10) * x));
-  return z;
-}
 
 int64_t n1[] = {15, 16, 4, 14, 1, 3, 5};
 int64_t n2[] = {8, 10, 3, 4, 5, 8, 11};
