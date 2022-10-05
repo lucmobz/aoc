@@ -1,266 +1,83 @@
 #include <ctype.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
-int64_t regs[4] = {0};
-
-void dump_regs() {
-  for (size_t i = 0; i < 4; ++i) {
-    printf("%ld ", regs[i]);
-  }
+static inline bool run(int64_t w0, int64_t w1, int64_t w2, int64_t w3,
+                       int64_t w4, int64_t w5, int64_t w6, int64_t w7,
+                       int64_t w8, int64_t w9, int64_t w10, int64_t w11,
+                       int64_t w12, int64_t w13) {
+  int64_t z = ((((w0 + 15) * 26 + w1 + 16) * 26 + w2 + 4) * 26 + w3 + 14);
+  int64_t x = (((z % 26 - 8) == w4) == 0);
+  z = (z / 26 * (25 * x + 1) + (w4 + 1) * x);
+  x = (((z % 26 - 10) == w5) == 0);
+  z = ((z / 26 * (25 * x + 1) + ((w5 + 5) * x)) * 26 + w6 + 1);
+  x = (((z % 26 - 3) == w7) == 0);
+  z = ((z / 26 * (25 * x + 1) + ((w7 + 3) * x)) * 26 + w8 + 3);
+  x = (((z % 26 - 4) == w9) == 0);
+  z = ((z / 26 * (25 * x + 1) + ((w9 + 7) * x)) * 26 + w10 + 5);
+  x = (((z % 26 - 5) == w11) == 0);
+  z = (z / 26 * (25 * x + 1) + ((w11 + 13) * x));
+  x = (((z % 26 - 8) == w12) == 0);
+  z = (z / 26 * (25 * x + 1) + ((w12 + 3) * x));
+  x = (((z % 26 - 11) == w13) == 0);
+  z = (z / 26 * (25 * x + 1) + ((w13 + 10) * x));
+  return z;
 }
 
-typedef struct Instruction {
-  int64_t c;
-  size_t a;
-  size_t b;
-  unsigned char type;
-} Instruction;
-
-enum { INP, ADD, MUL, DIV, MOD, EQL };
-
-char* type2str(unsigned char type) {
-  static char str[4];
-  memset(str, 0, sizeof(char) * 4);
-
-  switch (type) {
-    case INP:
-      strcpy(str, "inp");
-      break;
-    case ADD:
-      strcpy(str, "add");
-      break;
-    case MUL:
-      strcpy(str, "mul");
-      break;
-    case DIV:
-      strcpy(str, "div");
-      break;
-    case MOD:
-      strcpy(str, "mod");
-      break;
-    case EQL:
-      strcpy(str, "eql");
-      break;
-  }
-
-  return str;
-}
-
-unsigned char str2type(char* str) {
-  if (!strncmp(str, "inp", 3)) return INP;
-  if (!strncmp(str, "add", 3)) return ADD;
-  if (!strncmp(str, "mul", 3)) return MUL;
-  if (!strncmp(str, "div", 3)) return DIV;
-  if (!strncmp(str, "mod", 3)) return MOD;
-  if (!strncmp(str, "eql", 3)) return EQL;
-  return -1;
-}
-
-static Instruction program[4096] = {0};
-static size_t sz = 0;
-
-Instruction make_instruction(char* line) {
-  Instruction in;
-
-  in.type = str2type(line);
-
-  char* p = line + 4;
-  in.a = *p - 'w';
-
-  p = line + 6;
-  if (isalpha(*p)) {
-    in.b = *p - 'w';
-  } else {
-    in.b = 4;
-    in.c = strtoll(p, NULL, 10);
-  }
-
-  return in;
-}
-
-void dump_instruction(Instruction in, bool verbose) {
-  if (verbose) dump_regs();
-  printf("%s %c", type2str(in.type), (char)in.a + 'w');
-  if (in.type != INP) {
-    if (in.b == 4) {
-      printf(" %ld", in.c);
-    } else {
-      printf(" %c", (char)in.b + 'w');
-    }
-  }
-}
-
-void dump_program(Instruction* p, size_t sz) {
-  for (size_t i = 0; i < sz; ++i) {
-    dump_instruction(p[i], false);
-    putchar('\n');
-  }
-}
-
-int64_t run(const char* digits, Instruction* p, size_t sz) {
-  memset(regs, 0, sizeof(int64_t) * 4);
-
-  size_t d = 0;
-
-  for (size_t i = 0; i < sz; ++i) {
-    Instruction in = p[i];
-    int64_t b = in.b == 4 ? in.c : regs[in.b];
-    int64_t* a = &regs[in.a];
-
-    switch (in.type) {
-      case INP:
-        *a = digits[d++];
-        break;
-      case ADD:
-        *a += b;
-        break;
-      case MUL:
-        *a *= b;
-        break;
-      case DIV:
-        *a /= b;
-        break;
-      case MOD:
-        *a = *a % b;
-        break;
-      case EQL:
-        *a = *a == b ? 1 : 0;
-    }
-  }
-
-  return regs[3];
-}
-
-#define READ (INT64_MAX - 1)
-#define UNKNOWN INT64_MAX
-
-size_t optimize(Instruction* o, Instruction* p, size_t sz, bool verbose) {
-  memset(regs, 0, sizeof(int64_t) * 4);
-  size_t osz = 0;
-  bool skipped[4096] = {0};
-
-  for (size_t i = 0; i < sz; ++i) {
-    Instruction in = p[i];
-    bool skip = false;
-    int64_t b = in.b < 4 ? regs[in.b] : in.c;
-    int64_t* a = &regs[in.a];
-
-    if (in.type == INP) {
-      *a = READ;
-    } else {
-      switch (in.type) {
-        case ADD:
-          if (b == 0)
-            skip = true;
-          else if (*a == 0 && b == READ) 
-            *a = READ;
-          else if (*a >= READ || b >= READ)
-            *a = UNKNOWN;
-          else
-            *a += b;
-
-          break;
-
-        case MUL:
-          if (b == 1)
-            skip = true;
-          else if (*a == 0)
-            skip = true;
-          else if (*a == 0 || b == 0)
-            *a = 0;
-          else if (*a == 1 && b == READ) 
-            *a = READ;
-          else if (*a >= READ || b >= READ)
-            *a = UNKNOWN;
-          else
-            *a *= b;
-
-          break;
-
-        case DIV:
-          if (b == 1)
-            skip = true;
-          else if (*a >= READ || b >= READ)
-            *a = UNKNOWN;
-          else
-            *a /= b;
-          break;
-
-        case MOD:
-          if (*a == 0)
-            skip = true;
-          else
-            *a = *a % b;
-          break;
-
-        case EQL:
-          if (*a == READ && b < READ && (b <= 0 || b >= 10))
-            *a = 0;
-          else if (b == READ && *a < READ && (*a <= 0 || *a >= 10))
-            *a = 0;
-          else if (*a >= READ || b >= READ)
-            *a = UNKNOWN;
-          else
-            *a = *a == b ? 1 : 0;
-          break;
-      }
-    }
-
-    if (skip) skipped[i] = true;
-
-    if (verbose) {
-      printf(skip ? "[x] " : "[ ] ");
-      dump_instruction(p[i], verbose);
-      putchar('\n');
-    }
-  }
-
-  for (size_t i = 0; i < sz; ++i) if (!skipped[i]) o[osz++] = p[i];
-
-  return osz;
-}
+int64_t n1[] = {15, 16, 4, 14, 1, 3, 5};
+int64_t n2[] = {8, 10, 3, 4, 5, 8, 11};
 
 int main(void) {
-  char line[64] = {0};
-  while (fgets(line, 64, stdin)) program[sz++] = make_instruction(line);
-  // dump_program(program, sz);
+  for (int64_t w0 = 9; w0 >= 1; --w0) {
+    for (int64_t w1 = 9; w1 >= 1; --w1) {
+      for (int64_t w2 = 9; w2 >= 1; --w2) {
+        for (int64_t w3 = 9; w3 >= 1; --w3) {
+          int64_t z3 =
+              (((w0 + n1[0]) * 26 + w1 + n1[1]) * 26 + w2 + n1[2]) * 26 + w3 + n1[3];
+          int64_t w4 = z3 % 26 - n2[0];
+          if (w4 <= 0 || w4 >= 10) continue;
+          z3 /= 26;
+          int64_t w5 = z3 % 26 - n2[1];
+          if (w5 <= 0 || w5 >= 10) continue;
+          z3 /= 26;
+          for (int64_t w6 = 9; w6 >= 1; --w6) {
+            int64_t z6 = z3 * 26 + w6 + n1[4];
+            int64_t w7 = z6 % 26 - n2[2];
+            if (w7 <= 0 || w7 >= 10) continue;
+            z6 /= 26;
+            for (int64_t w8 = 9; w8 >= 1; --w8) {
+              int64_t z8 = z6 * 26 + w8 + n1[5];
+              int64_t w9 = z8 % 26 - n2[3];
+              if (w9 <= 0 || w9 >= 10) continue;
+              z8 /= 26;
+              for (int64_t w10 = 9; w10 >= 1; --w10) {
+                int64_t z10 = z8 * 26 + w10 + n1[6];
+                int64_t w11 = z10 % 26 - n2[4];
+                if (w11 <= 0 || w11 >= 10) continue;
+                z10 /= 26;
+                int64_t w12 = z10 % 26 - n2[5];
+                if (w12 <= 0 || w12 >= 10) continue;
+                z10 /= 26;
+                int64_t w13 = z10 % 26 - n2[6];
+                if (w13 <= 0 || w13 >= 10) continue;
+                z10 /= 26;
 
-  Instruction o[4096];
-  size_t osz = optimize(o, program, sz, false);
-  //printf("%zu/%zu\n", osz, sz);
-  osz = optimize(o, o, osz, false);
-  //printf("%zu/%zu\n", osz, sz);
-
-  //int64_t n = powl(10, 14) - 1;
-  int64_t n = 20000000000000;
-  int64_t lower = powl(10, 13) - 1;
-
-  while (true) {
-    if (n <= lower) break;
-    char str[15] = {0};
-    snprintf(str, 14, "%ld", n);
-
-    for (size_t i = 0; i < 14; ++i) {
-      if (str[i] == '0') {
-        --n;
-        continue;
+                if (z10 == 0) {
+                  printf(
+                      "%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%ld%"
+                      "ld\n",
+                      w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12,
+                      w13);
+                }
+              }
+            }
+          }
+        }
       }
     }
-
-    if (run(str, o, osz) == 0) {
-      puts(str);
-      break;
-    }
-    
-    if (n % 100000 == 0) printf("%ld\n", n);
-    --n;
   }
-
-  dump_program(o, osz);
-  return osz;
 }
