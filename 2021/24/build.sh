@@ -5,4 +5,5 @@ CFLAGS="-std=c2x -Ofast -march=native"
 
 cc $CFLAGS main.c -lm -o main
 
-./main < input.txt
+./main | head -1
+./main | tail -1
