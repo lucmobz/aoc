@@ -29,7 +29,7 @@ int main(void) {
     }
   }
 
-  printf("%d\n", depth * horiz);
+  printf("Part 2: %d\n", depth * horiz);
 
   return 0;
 }

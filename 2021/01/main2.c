@@ -25,7 +25,7 @@ int main(void) {
     num2 = num3;
   }
  
-  printf("%d\n", count);
+  printf("Part 2: %d\n", count);
 
   return 0;
 }

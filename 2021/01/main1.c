@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
     prev = curr;
   }
 
-  printf("%d\n", count);
+  printf("Part 1: %d\n", count);
 
   return 0;
 }
