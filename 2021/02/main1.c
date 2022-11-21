@@ -31,7 +31,7 @@ int main(void) {
     }
   }
 
-  printf("Part 1: %d\n", depth * horiz);
+  printf("%d\n", depth * horiz);
 
   return 0;
 }
