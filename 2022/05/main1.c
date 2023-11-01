@@ -48,5 +48,5 @@ int main(void) {
     msg[i] = stacks[i][strlen(stacks[i]) - 1];
   }
 
-  printf("Part 1:\n%s\n", msg);
+  printf("Part 1: %s\n", msg);
 }

@@ -45,5 +45,5 @@ int main(void) {
   for (size_t i = 0; i < ELF_COUNT; ++i)
     sum_max_calories += max_calories[i];
 
-  printf("Part 2:\n%llu\n", sum_max_calories);
+  printf("Part 2: %llu\n", sum_max_calories);
 }

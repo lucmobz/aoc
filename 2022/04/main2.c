@@ -21,5 +21,5 @@ int main(void) {
       ++count;
   }
 
-  printf("Part 2:\n%d\n", count);
+  printf("Part 2: %d\n", count);
 }

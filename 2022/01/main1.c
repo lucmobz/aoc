@@ -20,5 +20,5 @@ int main(void) {
     }
   }
 
-  printf("Part 1:\n%llu\n", max_calories);
+  printf("Part 1: %llu\n", max_calories);
 }

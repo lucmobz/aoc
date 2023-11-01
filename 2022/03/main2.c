@@ -46,5 +46,5 @@ int main(void) {
     }
   }
 
-  printf("Part 2:\n%lu\n", sum_priorities);
+  printf("Part 2: %lu\n", sum_priorities);
 }
