@@ -5,10 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define LINE_SIZE 64
+#define LINE_SIZE 32
 #define NAME_SIZE 16
 #define SUBDIR_COUNT 32
-#define DIR_COUNT 512
+#define DIR_COUNT 256
 
 static char line_buf[LINE_SIZE] = {0};
 
