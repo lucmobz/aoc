@@ -8,26 +8,35 @@
 #define PACKET_SIZE 256
 #define PACKET_COUNT 512
 
-void print_token(const char *p, const char *end) {
-  while (p && end && p != end)
-    putchar(*p++);
+void print_token(const char *begin, const char *end) {
+  assert(begin <= end);
+  while (begin && end && begin != end)
+    putchar(*begin++);
   putchar('\n');
 }
 
-char *get_token(char *p, char *end) {
+char *get_token(char **begin, const char *end) {
+  char *p = *begin;
   assert(p && end);
   assert(p <= end);
+
+  if (p < end && *p == ',')
+    ++p;
+
   assert(p == end || *p == '[' || isdigit(*p));
   assert(*end == ']' || *end == ',');
 
   // No more tokens
-  if (p == end)
+  if (p == end) {
+    *begin = p;
     return NULL;
+  }
 
   if (isdigit(*p)) {
     char *e = p;
     strtol(e, &e, 10);
     assert(*e == ',' || *e == ']');
+    *begin = p;
     return e;
   }
 
@@ -41,6 +50,7 @@ char *get_token(char *p, char *end) {
         --paren;
       ++e;
     }
+    *begin = p;
     return e;
   }
 
@@ -48,9 +58,9 @@ char *get_token(char *p, char *end) {
   return NULL;
 }
 
-int compare_packets(char *p1, char *end1, char *p2, char *end2) {
-  char *e1 = get_token(p1, end1);
-  char *e2 = get_token(p2, end2);
+int compare_packets(char *p1, const char *end1, char *p2, const char *end2) {
+  char *e1 = get_token(&p1, end1);
+  char *e2 = get_token(&p2, end2);
 
   // print_token(p1, e1);
   // print_token(p2, e2);
@@ -73,12 +83,13 @@ int compare_packets(char *p1, char *end1, char *p2, char *end2) {
 
     p1 = e1;
     p2 = e2;
-    if (p1 < end1 && *p1 == ',')
-      ++p1;
-    if (p2 < end2 && *p2 == ',')
-      ++p2;
-    e1 = get_token(p1, end1);
-    e2 = get_token(p2, end2);
+    /*    if (p1 < end1 && *p1 == ',')
+     *          ++p1;
+     *              if (p2 < end2 && *p2 == ',')
+     *                    ++p2;
+     *                    */
+    e1 = get_token(&p1, end1);
+    e2 = get_token(&p2, end2);
     // if (e1)
     //   print_token(p1, e1);
     // if (e2)
@@ -125,7 +136,6 @@ int main(void) {
   while (fgets(p1, PACKET_SIZE, stdin)) {
     fgets(p2, PACKET_SIZE, stdin);
 
-    // Compare packets
     char *end1 = p1 + strlen(p1);
     while (end1 > p1 && *end1 != ']')
       --end1;
@@ -138,7 +148,7 @@ int main(void) {
     strncpy(packets[packet_count++], p1, PACKET_SIZE);
     strncpy(packets[packet_count++], p2, PACKET_SIZE);
 
-    // Strip parens
+    // Strip parens and compare
     bool right_order = compare_packets(p1 + 1, end1, p2 + 1, end2) < 0;
 
     if (right_order)
